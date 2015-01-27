@@ -34,7 +34,16 @@ onGetSequencesResponse = function(message) {
 
         // iterate over all the sequences in parsed JSON response
         // for test purposes, iterate only for one instead ' response.query.categorymembers.length'
-        for (var i = 0; i < 1 ; i++) {
+
+        // *******This loop works instead of categorymembers.length. I first tested it by pasting in the above comment,
+        // *******and it failed. Then it worked again.
+        var count = 0;
+        for (var j in response.query.categorymembers)
+            if(response.query.categorymembers.hasOwnProperty(j))
+                count++;
+
+
+        for (var i = 0; i < response.query.categorymembers.length ; i++) { //for (var i =0; i < count; i++) {
             // add Object containing pageId and title for every sequence to array
             everything.sequences.push({
                 pageId: response.query.categorymembers[i].pageid,
@@ -43,6 +52,7 @@ onGetSequencesResponse = function(message) {
         }
 
         // go fetch links from each sequence
+
         getLinks();
     });
 }
@@ -62,9 +72,8 @@ getLinks = function() {
         // set options for fetching the external links
         var options = {
             host: 'wiki.lesswrong.com',
-            path: '/mediawiki/api.php?action=query&pageids=' + sequence.pageId + '&prop=extlinks&format=json'
+            path: '/mediawiki/api.php?action=query&pageids=' + sequence.pageId + '&redirects&prop=extlinks&format=json'
         }
-
         // fetch the external links
         http.request(options, function(message) {
             // where entire response content will be
@@ -79,22 +88,33 @@ getLinks = function() {
             message.on('end', function(){
                 // parse the entire response content as JSON
                 var response = JSON.parse(body);
+                var extlinks = response.query.pages[Object.keys(response.query.pages)[0]].extlinks;
+                if (!extlinks) return;
 
                 // create array on sequence to put links in
                 sequence.links = [];
 
+                // *******Here's the second loop. In this case, it only works if the loop is used.
+                var count = 0;
+                for (var j in extlinks)
+                    if(extlinks.hasOwnProperty(j))
+                        count++;
+
                 // iterate over all links in received list
-                for (var i = 0; i < response.query.pages[sequence.pageId].extlinks.length; i++) {
+
+                for (var i = 0; i < extlinks.length; i++) { // for (var i=0; i < count; i++) {
                     // check if the link contains 'castify'
-                    if (response.query.pages[sequence.pageId].extlinks[i]['*'].indexOf('castify') == -1){
+                    if (extlinks[i]['*'].indexOf('http://lesswrong.com/lw') == 0){
                         // put link to sequence
-                        sequence.links.push(response.query.pages[sequence.pageId].extlinks[i]['*']);
+                        sequence.links.push(extlinks[i]['*']);
                     }
                 }
 
                 if (++sequencesCompleted == sequencesToComplete) {
                     getArticles();
+
                 }
+                console.log(sequence.links)
             });
         }).end();
     });
@@ -106,4 +126,3 @@ getArticles = function() {
 }
 
 getSequences();
-
